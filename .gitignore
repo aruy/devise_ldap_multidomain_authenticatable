@@ -1,0 +1,16 @@
+/.bundle/
+/pkg/
+/tmp/
+/coverage/
+/log/
+/vendor/bundle/
+
+/.codex
+/.ruby-lsp/
+/.DS_Store
+/*.gem
+/*.rbc
+
+/.env
+/.env.*
+!.env.example

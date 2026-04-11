@@ -1,0 +1,15 @@
+common: &common
+  port: 636
+  encryption: simple_tls
+  connect_timeout: 1
+  read_timeout: 2
+
+development:
+  parallel: true
+  stop_on_first_success: true
+  domains:
+    - key: primary
+      host: dc1.example.local
+      base: dc=example,dc=local
+      auth_format: "%{login}@example.local"
+      <<: *common

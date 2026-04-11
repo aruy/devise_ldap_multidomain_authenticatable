@@ -1,0 +1,4 @@
+Devise.setup do |config|
+  # This gem installs a custom Warden strategy and reads
+  # config/ldap_multidomain.yml automatically through its Railtie.
+end
