@@ -247,6 +247,7 @@ bin/rails server
 - `config.authentication_keys` が `[:email]` のままだと strategy が期待通り動きません
 - LDAP 認証へ完全に切り替えるなら、`User` の devise modules から `:database_authenticatable` を外す運用を想定しています
 - 既存パスワードログインと併用したい場合は、アプリ側の認証フロー設計を別途検討してください
+- `devise User` の標準 migration は `email` の `NOT NULL` や unique index を前提にしているため、`emp_id` ログインへ切り替えたあともそのままだと `auto_create_user` や `User` 作成時に制約エラーになることがあります
 
 ## `sAMAccountName` の揺れ吸収
 
@@ -295,6 +296,21 @@ add_index :users, :last_authenticated_domain
 ```ruby
 add_index :users, :emp_id, unique: true
 ```
+
+一方で、`devise User` が作る `email` カラムと unique index はアプリによって扱いが異なります。この gem の install migration では `email` を削除しません。`email` を残すか、nullable にするか、unique index を外すかはアプリ側で判断してください。
+
+例えば `email` を必須ではなくしたいだけなら、別 migration で次のように調整できます。
+
+```ruby
+class RelaxEmailConstraintsOnUsers < ActiveRecord::Migration[7.0]
+  def change
+    remove_index :users, :email if index_exists?(:users, :email)
+    change_column_null :users, :email, true
+  end
+end
+```
+
+`email` を完全に使わない設計に寄せる場合でも、この変更は gem の install migration に混ぜず、アプリ側 migration として分けるのが安全です。
 
 認証成功後は次の情報を補完します。
 
