@@ -8,7 +8,7 @@ RSpec.describe DeviseLdapMultidomainAuthenticatable::Generators::InstallGenerato
     allow(Time).to receive_message_chain(:now, :utc, :strftime).and_return("20260412013000")
 
     expect(generator.send(:migration_destination))
-      .to eq("db/migrate/20260412013000_add_last_authenticated_domain_to_users.rb")
+      .to eq("db/migrate/20260412013000_add_ldap_multidomain_auth_fields_to_users.rb")
     expect(generator.send(:migration_class_name)).to eq("AddLdapMultidomainAuthFieldsToUsers")
   end
 
@@ -22,7 +22,7 @@ RSpec.describe DeviseLdapMultidomainAuthenticatable::Generators::InstallGenerato
     allow(Time).to receive_message_chain(:now, :utc, :strftime).and_return("20260412013000")
 
     expect(generator.send(:migration_destination))
-      .to eq("db/migrate/20260412013000_add_ldap_domain_key_to_members.rb")
+      .to eq("db/migrate/20260412013000_add_ldap_multidomain_auth_fields_to_members.rb")
     expect(generator.send(:migration_class_name)).to eq("AddLdapMultidomainAuthFieldsToMembers")
   end
 end

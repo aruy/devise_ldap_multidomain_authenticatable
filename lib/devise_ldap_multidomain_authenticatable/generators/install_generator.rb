@@ -25,7 +25,7 @@ module DeviseLdapMultidomainAuthenticatable
 
       def migration_destination
         timestamp = Time.now.utc.strftime("%Y%m%d%H%M%S")
-        "db/migrate/#{timestamp}_add_#{remembered_domain_attribute}_to_#{model_name}.rb"
+        "db/migrate/#{timestamp}_#{migration_file_name}.rb"
       end
 
       def model_name
@@ -38,6 +38,10 @@ module DeviseLdapMultidomainAuthenticatable
 
       def migration_class_name
         "AddLdapMultidomainAuthFieldsTo#{camelize(model_name)}"
+      end
+
+      def migration_file_name
+        "add_ldap_multidomain_auth_fields_to_#{model_name}"
       end
 
       def camelize(value)
