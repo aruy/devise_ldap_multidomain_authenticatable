@@ -73,6 +73,12 @@ module DeviseLdapMultidomainAuthenticatable
         return resource_class.find_for_ldap_multidomain_resource(authentication_hash)
       end
 
+      if auth_result.nil?
+        return resource_class.find_for_authentication(authentication_hash) if resource_class.respond_to?(:find_for_authentication)
+
+        return
+      end
+
       # 認証後 hook では domain_key や emp_id を含む auth_result を渡します。
       if resource_class.respond_to?(:find_for_ldap_multidomain_authentication)
         resource_class.find_for_ldap_multidomain_authentication(auth_result, authentication_hash)

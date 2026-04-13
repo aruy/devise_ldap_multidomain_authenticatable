@@ -60,6 +60,28 @@ RSpec.describe DeviseLdapMultidomainAuthenticatable::ResourceResolver do
     expect(resolved).to eq(resource)
   end
 
+  it "does not call the post-authentication hook during preloading" do
+    resource = double(:resource)
+    klass = Class.new do
+      def self.find_for_ldap_multidomain_authentication(*)
+        raise "should not be called during preload"
+      end
+
+      def self.find_for_authentication(*)
+        :stubbed
+      end
+    end
+
+    allow(klass).to receive(:find_for_authentication).and_return(resource)
+
+    resolved = described_class.find_existing_resource(
+      resource_class: klass,
+      authentication_hash: { login: "1234", emp_id: "01234" }
+    )
+
+    expect(resolved).to eq(resource)
+  end
+
   it "uses custom hooks for reading and writing remembered domains" do
     resource = Class.new do
       attr_reader :stored_domain

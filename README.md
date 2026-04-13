@@ -124,6 +124,15 @@ end
 
 既存アプリで `database_authenticatable` を使っている場合は、この gem で LDAP 認証に切り替えるなら `:ldap_multidomain_authenticatable` へ置き換えてください。
 
+`devise_for :users` は routes に残しておいてください。session route は `devise_for` と `devise :ldap_multidomain_authenticatable` の両方が揃って初めて生えます。
+
+```ruby
+# config/routes.rb
+Rails.application.routes.draw do
+  devise_for :users
+end
+```
+
 ### 7. ログインフォームを `emp_id` ベースにする
 
 Devise の sign in form でも、ユーザーに入力してもらう識別子は `email` ではなく `emp_id` にします。
@@ -174,6 +183,18 @@ production:
 
 Railtie により、このファイルは Rails 起動時に自動で読み込まれます。
 
+主な設定項目:
+
+- `domains`: 認証対象の AD / LDAP ドメイン一覧
+- `parallel`: 複数ドメインを並列に試すか
+- `stop_on_first_success`: 最初の成功で残りを打ち切るか
+- `max_parallelism`: 同時接続数の上限
+- `overall_timeout`: 全ドメイン認証のタイムアウト秒数
+- `auto_create_user`: LDAP 成功時にアプリ側 `User` が無ければ自動作成するか
+- `remembered_domain_attribute`: 前回成功ドメインを保存するカラム名
+- `emp_id_attribute`: 正規化済み社員番号を保存するカラム名
+- `mask_bind_username_in_logs`: bind username をログ上でマスクするか
+
 389 ポートで通常 LDAP を使うなら `port: 389` を指定し、`simple_tls` は外してください。389 + StartTLS を使うなら `encryption: start_tls` を指定します。
 
 ```yaml
@@ -185,6 +206,24 @@ production:
       base: dc=example,dc=local
       auth_format: "%{login}@example.local"
       encryption: start_tls
+```
+
+接続パターンの目安:
+
+- `port: 389` のみ: 平文 LDAP
+- `port: 389` + `encryption: start_tls`: StartTLS
+- `port: 636` + `encryption: simple_tls`: LDAPS
+
+`auto_create_user` は未指定だと `false` です。つまり、LDAP bind に成功してもアプリ側 `User` が見つからない場合はログインできません。初回ログイン時に `User` を自動作成したいなら、明示的に `true` を設定してください。
+
+```yaml
+production:
+  auto_create_user: true
+  domains:
+    - key: primary
+      host: dc1.example.local
+      port: 389
+      auth_format: "%{login}@example.local"
 ```
 
 ### 9. 動作確認
@@ -251,6 +290,12 @@ add_column :users, :last_authenticated_domain, :string
 add_index :users, :last_authenticated_domain
 ```
 
+`emp_id` は実装上 `UNIQUE` 必須ではありませんが、認証キーとして使うなら一意制約を強くおすすめします。
+
+```ruby
+add_index :users, :emp_id, unique: true
+```
+
 認証成功後は次の情報を補完します。
 
 - `emp_id` があれば 5 桁で保存
@@ -283,6 +328,27 @@ class User < ApplicationRecord
 end
 ```
 
+認証前 preload と認証後 lookup を分けたい場合は、2 つの hook を使い分けられます。
+
+```ruby
+class User < ApplicationRecord
+  def self.find_for_ldap_multidomain_resource(authentication_hash)
+    find_by(emp_id: authentication_hash[:emp_id] || authentication_hash["emp_id"])
+  end
+
+  def self.find_for_ldap_multidomain_authentication(auth_result, authentication_hash)
+    find_by(emp_id: auth_result.emp_id)
+  end
+end
+```
+
+使い分けの目安:
+
+- `find_for_ldap_multidomain_resource`: 認証前に既存 `User` を見つけ、前回成功ドメインを知りたいとき
+- `find_for_ldap_multidomain_authentication`: LDAP success 後に最終的な sign in 対象 `User` を解決したいとき
+
+認証前には `auth_result` は存在しないため、`find_for_ldap_multidomain_authentication` の中では `auth_result` が必ずある前提で書いて大丈夫です。
+
 ## direct bind の流れ
 
 各ドメインは `auth_format` から bind username を組み立てます。
@@ -307,6 +373,48 @@ end
 - `overall_timeout` で全体の待ち時間上限を設定できます
 
 アカウントロックが厳しい環境では、無効なパスワードが複数ドメインに対して試行される点に注意してください。前回成功ドメインの優先試行は、このリスクと待ち時間を少し下げるための仕組みでもあります。
+
+## ルーティングと root の注意
+
+`authenticate_user!` を使うアプリでは、未ログイン時の root とログイン後の root を分けると安定します。
+
+```ruby
+Rails.application.routes.draw do
+  devise_for :users
+
+  authenticated :user do
+    root "home#index", as: :authenticated_root
+  end
+
+  unauthenticated do
+    root "devise/sessions#new", as: :unauthenticated_root
+  end
+end
+```
+
+`root "home#index"` に直接 `before_action :authenticate_user!` を掛ける構成でも動かせますが、未認証時の遷移先やアプリ側の rescue 次第では 401 / redirect loop を起こしやすくなります。
+
+確認ポイント:
+
+- `devise_for :users` が routes にある
+- `User` モデルで `devise :ldap_multidomain_authenticatable` が有効
+- sign in form が `emp_id` を送っている
+- `config.authentication_keys = [:emp_id]` になっている
+
+## トラブルシュート
+
+よくある症状と確認ポイント:
+
+- sign in route が生えない
+  `devise_for :users` が routes にあるか、`User` モデルで `devise :ldap_multidomain_authenticatable` を有効にしているか確認してください。
+- sign in 画面前に 401 が繰り返される
+  root や共通 controller に `authenticate_user!` を掛けていないか、未認証時 root が再び保護ページへ戻っていないか確認してください。
+- LDAP bind は成功していそうなのにログインできない
+  `auto_create_user` が `false` のままでは、アプリ側 `User` が見つからないと sign in できません。
+- `undefined method emp_id for nil`
+  認証前 lookup と認証後 lookup の hook を混同している可能性があります。`find_for_ldap_multidomain_resource` と `find_for_ldap_multidomain_authentication` を役割に応じて使い分けてください。
+- `emp_id` 入力なのに認証されない
+  sign in form の input name と `config.authentication_keys = [:emp_id]` が一致しているか確認してください。
 
 ## セキュリティ上の注意
 
