@@ -58,5 +58,6 @@ Devise.add_module(
   :ldap_multidomain_authenticatable,
   strategy: true,
   controller: :sessions,
+  route: { session: [nil, :new, :destroy] },
   model: "devise/models/ldap_multidomain_authenticatable"
 )
