@@ -2,6 +2,32 @@
 
 `devise_ldap_multidomain_authenticatable` は、Rails アプリで Devise のログイン体験を維持したまま、LDAP 認証部分だけを複数ドメイン対応の direct bind に差し替えるための gem です。
 
+## 対応ブランチ
+
+- `main`: 新しめの Rails / Ruby 向け
+- `compat/rails5-ruby23`: Rails 5.x / Ruby 2.3 向けの互換ブランチ
+
+この README は `compat/rails5-ruby23` ブランチ基準です。古い環境では、アプリ側でも Devise 4 系と Rails 5 系に合わせた gem version を選んでください。
+このブランチでは Ruby 2.3 で解釈できない構文を避けていますが、Rails 5 / Ruby 2.3 の実機 CI はまだ未設定です。
+
+### Rails 5 向けの開発用 Gemfile
+
+このブランチには、Rails 5 系で依存解決を試すための [gemfiles/Gemfile.rails5](/home/nakaj/src/devise_ldap_multidomain_authenticatable/gemfiles/Gemfile.rails5:1) を置いています。
+
+```bash
+BUNDLE_GEMFILE=gemfiles/Gemfile.rails5 bundle install
+BUNDLE_GEMFILE=gemfiles/Gemfile.rails5 bundle exec rspec
+```
+
+想定している組み合わせ:
+
+- Ruby 2.3.x
+- Rails / Railties 5.2.x
+- Devise 4.9.x
+- net-ldap 0.17.x
+
+この Gemfile は互換確認の足場なので、実際のアプリ側 lockfile ではより細かく version を固定してください。
+
 ## 何を解決するか
 
 - `authenticate_user!`、session 管理、`rememberable`、`trackable`、failure handling をそのまま使えます。
@@ -310,7 +336,7 @@ add_index :users, :emp_id, unique: true
 例えば `email` を必須ではなくしたいだけなら、別 migration で次のように調整できます。
 
 ```ruby
-class RelaxEmailConstraintsOnUsers < ActiveRecord::Migration[7.0]
+class RelaxEmailConstraintsOnUsers < ActiveRecord::Migration[5.0]
   def change
     remove_index :users, :email if index_exists?(:users, :email)
     change_column_null :users, :email, true

@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.summary = "Devise extension for parallel direct-bind LDAP authentication across multiple domains."
   spec.description = spec.summary
   spec.license = "UNLICENSED"
-  spec.required_ruby_version = ">= 3.1"
+  spec.required_ruby_version = ">= 2.3.0"
 
   spec.files = Dir[
     "Gemfile",
@@ -19,9 +19,9 @@ Gem::Specification.new do |spec|
   ]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "devise", ">= 4.9"
-  spec.add_dependency "net-ldap", ">= 0.18"
-  spec.add_dependency "railties", ">= 7.0"
+  spec.add_dependency "devise", ">= 4.7"
+  spec.add_dependency "net-ldap", ">= 0.16", "< 1.0"
+  spec.add_dependency "railties", ">= 5.0"
 
   spec.add_development_dependency "rspec", ">= 3.12"
 end

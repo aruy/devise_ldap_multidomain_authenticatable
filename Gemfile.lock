@@ -2,9 +2,9 @@ PATH
   remote: .
   specs:
     devise_ldap_multidomain_authenticatable (0.1.0)
-      devise (>= 4.9)
-      net-ldap (>= 0.18)
-      railties (>= 7.0)
+      devise (>= 4.7)
+      net-ldap (>= 0.16, < 1.0)
+      railties (>= 5.0)
 
 GEM
   remote: https://rubygems.org/

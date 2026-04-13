@@ -3,8 +3,8 @@ require "thread"
 
 module DeviseLdapMultidomainAuthenticatable
   class ParallelAuthenticator
-    def self.call(...)
-      new(...).call
+    def self.call(*args, **kwargs)
+      new(*args, **kwargs).call
     end
 
     def initialize(login:, password:, domains:, logger: nil, ldap_factory: Net::LDAP, parallel: true,

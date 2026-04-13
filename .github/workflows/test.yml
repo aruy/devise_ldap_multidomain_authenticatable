@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - compat/**
   pull_request:
 
 jobs:
@@ -18,6 +19,25 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.4.9
+          bundler-cache: true
+
+      - name: Run RSpec
+        run: bundle exec rspec
+
+  rspec_rails5_compat:
+    runs-on: ubuntu-20.04
+    env:
+      BUNDLE_GEMFILE: gemfiles/Gemfile.rails5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.3.8
+          bundler: 2.3.26
           bundler-cache: true
 
       - name: Run RSpec

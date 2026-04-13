@@ -50,7 +50,7 @@ module DeviseLdapMultidomainAuthenticatable
 
     def normalize_emp_id(digits)
       # User 側の検索を安定させるため、社員番号は固定長の 5 桁で保持します。
-      return unless digits.match?(/\A\d{4,5}\z/)
+      return unless digits =~ /\A\d{4,5}\z/
 
       digits.rjust(5, "0")
     end

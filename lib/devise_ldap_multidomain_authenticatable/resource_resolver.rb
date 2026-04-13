@@ -1,7 +1,7 @@
 module DeviseLdapMultidomainAuthenticatable
   class ResourceResolver
-    def self.call(...)
-      new(...).call
+    def self.call(*args, **kwargs)
+      new(*args, **kwargs).call
     end
 
     def self.find_existing_resource(resource_class:, authentication_hash:, emp_id_attribute: :emp_id)
