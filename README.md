@@ -25,15 +25,42 @@
 
 この gem は direct bind 専用です。LDAP 検索を前提にせず、サービスアカウントも使いません。各ドメイン設定の `auth_format` から bind username を組み立て、`Net::LDAP#bind` を直接試します。
 
-## インストール
+## 導入手順
 
-Rails アプリの `Gemfile` に追加します。
+### 1. Gemfile に追加
+
+Rails アプリの `Gemfile` に `devise` とこの gem を追加します。
 
 ```ruby
+gem "devise"
 gem "devise_ldap_multidomain_authenticatable"
 ```
 
-設定ファイルを生成します。
+install されていなければ bundle install します。
+
+```bash
+bundle install
+```
+
+### 2. Devise を install
+
+まだ Devise を入れていないアプリでは、まず Devise の generator を実行します。
+
+```bash
+bin/rails generate devise:install
+```
+
+必要に応じて、アプリの `User` モデルも作成します。
+
+```bash
+bin/rails generate devise User
+```
+
+すでに `User` モデルがある場合は、この step は不要です。
+
+### 3. この gem の generator を実行
+
+LDAP multi-domain 用の initializer、設定ファイル、migration を生成します。
 
 ```bash
 bin/rails generate devise_ldap_multidomain_authenticatable:install
@@ -53,9 +80,69 @@ bin/rails generate devise_ldap_multidomain_authenticatable:install \
   --remembered_domain_attribute ldap_domain_key
 ```
 
-## 設定
+### 4. migration を実行
 
-`config/ldap_multidomain.yml` を作成します。
+```bash
+bin/rails db:migrate
+```
+
+### 5. `devise.rb` を設定
+
+この gem は、Devise 側の認証キーが `emp_id` であることを想定しています。
+
+`config/initializers/devise.rb` に次の設定を入れてください。
+
+```ruby
+Devise.setup do |config|
+  config.authentication_keys = [:emp_id]
+end
+```
+
+`case_insensitive_keys` や `strip_whitespace_keys` も `email` 前提になっているなら、必要に応じて `emp_id` に寄せてください。
+
+```ruby
+Devise.setup do |config|
+  config.authentication_keys = [:emp_id]
+  config.case_insensitive_keys = [:emp_id]
+  config.strip_whitespace_keys = [:emp_id]
+end
+```
+
+### 6. User モデルへ module を追加
+
+`User` モデルで `:ldap_multidomain_authenticatable` を有効にします。
+
+```ruby
+class User < ApplicationRecord
+  devise :ldap_multidomain_authenticatable, :rememberable, :trackable
+
+  def self.find_for_ldap_multidomain_authentication(auth_result, authentication_hash)
+    find_by(emp_id: auth_result.emp_id)
+  end
+end
+```
+
+既存アプリで `database_authenticatable` を使っている場合は、この gem で LDAP 認証に切り替えるなら `:ldap_multidomain_authenticatable` へ置き換えてください。
+
+### 7. ログインフォームを `emp_id` ベースにする
+
+Devise の sign in form でも、ユーザーに入力してもらう識別子は `email` ではなく `emp_id` にします。
+
+例えば `app/views/devise/sessions/new.html.erb` では次のような形です。
+
+```erb
+<%= f.label :emp_id %>
+<%= f.text_field :emp_id, autofocus: true %>
+
+<%= f.label :password %>
+<%= f.password_field :password, autocomplete: "current-password" %>
+```
+
+### 8. `config/ldap_multidomain.yml` を設定
+
+各 AD / LDAP ドメインの bind 方法を設定します。
+
+設定例:
 
 ```yaml
 common: &common
@@ -87,24 +174,40 @@ production:
 
 Railtie により、このファイルは Rails 起動時に自動で読み込まれます。
 
-## User モデルへの組み込み
+389 ポートで通常 LDAP を使うなら `port: 389` を指定し、`simple_tls` は外してください。389 + StartTLS を使うなら `encryption: start_tls` を指定します。
 
-```ruby
-class User < ApplicationRecord
-  devise :ldap_multidomain_authenticatable, :rememberable, :trackable
-
-  def self.find_for_ldap_multidomain_authentication(auth_result, authentication_hash)
-    find_by(emp_id: auth_result.emp_id)
-  end
-end
+```yaml
+production:
+  domains:
+    - key: primary
+      host: dc1.example.local
+      port: 389
+      base: dc=example,dc=local
+      auth_format: "%{login}@example.local"
+      encryption: start_tls
 ```
 
-Devise 側は `emp_id` を認証キーにする想定です。
+### 9. 動作確認
 
-```ruby
-# config/initializers/devise.rb
-config.authentication_keys = [:emp_id]
+アプリを起動して、Devise の sign in 画面から `emp_id` と `password` でログインできることを確認します。
+
+```bash
+bin/rails server
 ```
+
+確認ポイントは次の通りです。
+
+- `emp_id` 入力でログインできる
+- LDAP bind が成功したドメインで認証される
+- `users.emp_id` に 5 桁で保存される
+- `users.last_authenticated_domain` に成功ドメインが保存される
+
+### 10. 既存の `database_authenticatable` から切り替えるときの注意
+
+- アプリ側の sign in フォームが `email` 前提のままだとログインできません
+- `config.authentication_keys` が `[:email]` のままだと strategy が期待通り動きません
+- LDAP 認証へ完全に切り替えるなら、`User` の devise modules から `:database_authenticatable` を外す運用を想定しています
+- 既存パスワードログインと併用したい場合は、アプリ側の認証フロー設計を別途検討してください
 
 ## `sAMAccountName` の揺れ吸収
 
