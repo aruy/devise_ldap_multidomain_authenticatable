@@ -8,6 +8,8 @@ module DeviseLdapMultidomainAuthenticatable
       class_option :model_name, type: :string, default: "users", desc: "Migration target table name"
       class_option :remembered_domain_attribute, type: :string, default: "last_authenticated_domain",
                    desc: "Attribute name used to store the last successful domain"
+      class_option :unique_emp_id, type: :boolean, default: false,
+                   desc: "Create a unique index for emp_id"
 
       def copy_initializer
         template "initializer.rb.tt", "config/initializers/devise_ldap_multidomain_authenticatable.rb"
@@ -42,6 +44,10 @@ module DeviseLdapMultidomainAuthenticatable
 
       def migration_file_name
         "add_ldap_multidomain_auth_fields_to_#{model_name}"
+      end
+
+      def unique_emp_id?
+        options["unique_emp_id"]
       end
 
       def camelize(value)

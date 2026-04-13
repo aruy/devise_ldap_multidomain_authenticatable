@@ -72,12 +72,20 @@ bin/rails generate devise_ldap_multidomain_authenticatable:install
 - `config/ldap_multidomain.yml`
 - `emp_id` と前回成功ドメイン保存用の migration
 
+`--unique-emp-id` を付けた場合、生成される migration の `emp_id` index は `unique: true` になります。
+
 テーブル名や属性名を変えたい場合は option を使えます。
 
 ```bash
 bin/rails generate devise_ldap_multidomain_authenticatable:install \
   --model_name members \
   --remembered_domain_attribute ldap_domain_key
+```
+
+`emp_id` に unique index も張りたい場合は、次の option を使えます。
+
+```bash
+bin/rails generate devise_ldap_multidomain_authenticatable:install --unique-emp-id
 ```
 
 ### 4. migration を実行
@@ -291,7 +299,7 @@ add_column :users, :last_authenticated_domain, :string
 add_index :users, :last_authenticated_domain
 ```
 
-`emp_id` は実装上 `UNIQUE` 必須ではありませんが、認証キーとして使うなら一意制約を強くおすすめします。
+`emp_id` は実装上 `UNIQUE` 必須ではありませんが、認証キーとして使うなら一意制約を強くおすすめします。新規導入なら install generator に `--unique-emp-id` を付けるのが簡単です。
 
 ```ruby
 add_index :users, :emp_id, unique: true
