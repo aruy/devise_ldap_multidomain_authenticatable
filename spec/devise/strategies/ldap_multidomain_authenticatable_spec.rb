@@ -1,6 +1,8 @@
 require "logger"
-
 RSpec.describe Devise::Strategies::LdapMultidomainAuthenticatable do
+  let(:resource_klass) do
+    Struct.new(:last_authenticated_domain, :emp_id, :remember_me)
+  end
   let(:resource_class) do
     Class.new do
       def self.devise_modules
@@ -16,10 +18,12 @@ RSpec.describe Devise::Strategies::LdapMultidomainAuthenticatable do
   let(:mapping) { instance_double("Devise::Mapping", to: resource_class) }
   let(:env) do
     {
+      "devise.allow_params_authentication" => true,
       "action_dispatch.request.parameters" => {
         "user" => {
           "emp_id" => "1234",
-          "password" => "secret"
+          "password" => "secret",
+          "remember_me" => "1"
         }
       }
     }
@@ -32,7 +36,7 @@ RSpec.describe Devise::Strategies::LdapMultidomainAuthenticatable do
       emp_id: "01234"
     )
   end
-  let(:resource) { double(:user, last_authenticated_domain: "corp", emp_id: "01234") }
+  let(:resource) { resource_klass.new("corp", "01234") }
 
   before do
     allow(DeviseLdapMultidomainAuthenticatable).to receive(:config).and_return(
@@ -52,12 +56,14 @@ RSpec.describe Devise::Strategies::LdapMultidomainAuthenticatable do
   it "authenticates and succeeds with the resolved resource" do
     strategy = described_class.new(env, :user)
     allow(strategy).to receive(:mapping).and_return(mapping)
+    allow(strategy).to receive(:remember_me).and_call_original
 
     expect(strategy.valid?).to be(true)
     strategy.authenticate!
 
     expect(strategy.result).to eq(:success)
     expect(strategy.user).to eq(resource)
+    expect(strategy).to have_received(:remember_me).with(resource)
     expect(DeviseLdapMultidomainAuthenticatable::ParallelAuthenticator).to have_received(:call).with(
       hash_including(preferred_domain_key: "corp", normalized_bind_login: "d1234", emp_id: "01234", login: "1234")
     )

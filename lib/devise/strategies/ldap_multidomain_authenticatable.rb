@@ -59,6 +59,7 @@ module Devise
           emp_id_attribute: configuration.emp_id_attribute
         )
 
+        remember_me(resource)
         env["devise.ldap_multidomain_auth_result"] = result
         success!(resource)
       end
